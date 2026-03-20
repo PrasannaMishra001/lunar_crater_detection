@@ -1,0 +1,37 @@
+__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+dist/
+build/
+.eggs/
+
+# Large model checkpoints (keep best.pt only)
+lunar_crater_project/models/yolov8n_craters/weights/last.pt
+lunar_crater_project/models/yolov8n_craters/weights/epoch*.pt
+lunar_crater_project/yolov8n.pt
+
+# YOLO dataset (auto-generated from source data, can be regenerated)
+lunar_crater_project/yolo_dataset/images/
+lunar_crater_project/yolo_dataset/labels/*.cache
+
+# Runs directory (YOLO validation outputs)
+lunar_crater_project/runs/
+
+# Pickle files
+*.pkl
+
+# OS files
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Env
+.env
+*.env
