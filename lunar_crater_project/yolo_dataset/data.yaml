@@ -1,0 +1,10 @@
+path: D:\Study-Material\Semester 5\Sem 6\6. HCI\campus-marketplace\lunar_crater_project\yolo_dataset
+train: images/train
+val: images/val
+
+nc: 1
+names: ['crater']
+
+# Dataset info
+# LRO NAC lunar crater dataset near Chang'E-4 landing site
+# ~10056 train craters, ~1595 val craters
