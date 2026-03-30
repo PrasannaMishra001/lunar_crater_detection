@@ -1,0 +1,19 @@
+{
+  "monte_carlo_clean": {
+    "n_trials": 100,
+    "matching_accuracy_mean": 96.78504575011742,
+    "match_time_mean": 0.07257187200128101,
+    "nav_success_rate": 100.0,
+    "reproj_avg": 2.0674473848660266,
+    "reproj_rms": 2.3383686333404503,
+    "pos_x_pct_mean": 0.290068167693105,
+    "pos_y_pct_mean": 0.3442066897144386
+  },
+  "yolo_detection": {
+    "mAP50": 0.4158694963643477,
+    "mAP50-95": 0.14686238976866028,
+    "precision": 0.6166666666666667,
+    "recall": 0.23197492163009403
+  },
+  "error_rate_sweep": []
+}

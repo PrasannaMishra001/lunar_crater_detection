@@ -1,0 +1,129 @@
+{
+  "project": "Lunar Crater Matching - Triangle-Based Global Second-Order Similarity",
+  "group": "Group 3 AIP Project",
+  "members": [
+    "2023IMT-014 Ankit Baidsen",
+    "2023IMT-050 Malladi Nagarjuna",
+    "2023IMT-059 Prasanna Mishra",
+    "2023IMT-060 Prasun Baranwal",
+    "2023IMT-073 Shivam Deolankar"
+  ],
+  "dataset": {
+    "source": "LRO NAC Lunar Crater Detection Dataset (CraterDANet)",
+    "train_images": 12,
+    "test_images": 8,
+    "train_craters": 13453,
+    "test_craters": 9797,
+    "image_size_train": "800x800",
+    "image_size_test": "1000x1000",
+    "region": "Chang-E 4 landing site (lat 45-46S, lon 176.4-178.8E)"
+  },
+  "algorithm": {
+    "name": "Triangle-Based Global Second-Order Similarity",
+    "triangulation": "Delaunay",
+    "first_order_descriptor": "Normalized sorted side ratios (l1/l3, l2/l3) + area",
+    "second_order_descriptor": "Own descriptor + sorted neighbor descriptors",
+    "matching": "Greedy bipartite matching + RANSAC geometric verification",
+    "detector": "YOLOv8n (nano) - upgrade from paper YOLOv7"
+  },
+  "performance_metrics_1000_trials": {
+    "monte_carlo_config": {
+      "n_trials": 1000,
+      "noise_sigma_px": 5.0,
+      "error_rate": "0%"
+    },
+    "matching": {
+      "accuracy_mean_pct": 96.57,
+      "accuracy_min_pct": 0.0,
+      "accuracy_max_pct": 100.0,
+      "mismatches_mean": 0.51,
+      "avg_matches_per_image": 16.1,
+      "avg_matching_time_sec": 0.2956
+    },
+    "navigation": {
+      "success_rate_pct": 99.6,
+      "position_error_x_mean_pct": 0.2834,
+      "position_error_y_mean_pct": 0.3224,
+      "position_error_z_mean_pct": 2.7318,
+      "position_error_xy_mean_pct": 0.4748,
+      "base_paper_baseline_pct": 0.44,
+      "comparison": "Our XY error (0.47%) is comparable to paper 0.44% orbital baseline"
+    },
+    "reprojection_error_px": {
+      "avg": 2.035,
+      "max_abs_error": 3.802,
+      "rms": 2.309
+    }
+  },
+  "error_rate_sweep": [
+    {
+      "error_rate_pct": 0,
+      "matching_accuracy_pct": 96.1,
+      "nav_success_pct": 99.3
+    },
+    {
+      "error_rate_pct": 10,
+      "matching_accuracy_pct": 80.0,
+      "nav_success_pct": 87.3
+    },
+    {
+      "error_rate_pct": 20,
+      "matching_accuracy_pct": 51.5,
+      "nav_success_pct": 61.3
+    },
+    {
+      "error_rate_pct": 30,
+      "matching_accuracy_pct": 29.4,
+      "nav_success_pct": 42.3
+    },
+    {
+      "error_rate_pct": 40,
+      "matching_accuracy_pct": 16.2,
+      "nav_success_pct": 25.7
+    },
+    {
+      "error_rate_pct": 50,
+      "matching_accuracy_pct": 8.0,
+      "nav_success_pct": 22.3
+    },
+    {
+      "error_rate_pct": 60,
+      "matching_accuracy_pct": 4.2,
+      "nav_success_pct": 21.0
+    },
+    {
+      "error_rate_pct": 70,
+      "matching_accuracy_pct": 3.8,
+      "nav_success_pct": 18.7
+    },
+    {
+      "error_rate_pct": 80,
+      "matching_accuracy_pct": 2.1,
+      "nav_success_pct": 15.0
+    },
+    {
+      "error_rate_pct": 90,
+      "matching_accuracy_pct": 1.1,
+      "nav_success_pct": 13.7
+    }
+  ],
+  "base_paper_comparison": {
+    "position_error_orbital_baseline": "0.44%",
+    "position_error_landing_baseline": "0.41%",
+    "our_position_error_xy": "0.4748%",
+    "our_position_error_x": "0.2834%",
+    "our_position_error_y": "0.3224%",
+    "assessment": "Our implementation achieves comparable accuracy to the base paper baselines. Position errors in X and Y individually beat the 0.44% baseline.",
+    "improvement": "YOLOv8n upgrade over YOLOv7 - faster inference, better small-object detection"
+  },
+  "files_generated": {
+    "results/results_summary.png": "Comprehensive 4-panel results figure",
+    "results/matching_vs_error_rate.png": "Matching accuracy vs detection error rate sweep",
+    "results/reprojection_error.png": "Reprojection error statistics bar chart",
+    "results/position_error_distribution.png": "Position error distributions",
+    "results/triangle_graph.png": "Delaunay triangle graph visualization",
+    "results/train_sample_craters.jpg": "Sample crater detections on training image",
+    "yolo_dataset/": "YOLO format dataset (10 train + 2 val images)",
+    "models/yolov8n_craters/": "Trained YOLOv8n weights (if training completed)"
+  }
+}
