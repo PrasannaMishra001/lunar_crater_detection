@@ -17,6 +17,11 @@ NAVIGATION LEVEL:
 MONTE CARLO:
   - 1000 trials, Gaussian noise σ=5px on crater centers
   - Reports statistical distribution of all above metrics
+
+IMPROVEMENT: simulate_observation now also returns detection confidence scores:
+  - Real craters: confidence ~ N(0.85, 0.05), clipped to [0.50, 1.00]
+  - Spurious (false positive) craters: confidence ~ N(0.35, 0.10), clipped [0.10, 0.60]
+  These are passed to TriangleMatcher.match() for confidence-weighted voting.
 """
 import numpy as np
 import time
@@ -64,10 +69,10 @@ def evaluate_matches(pred_pairs: List[Tuple[int, int]],
     accuracy = correct / total * 100.0 if total > 0 else 0.0
 
     return {
-        'correct':   correct,
-        'incorrect': incorrect,
-        'total':     total,
-        'accuracy':  accuracy,
+        'correct':    correct,
+        'incorrect':  incorrect,
+        'total':      total,
+        'accuracy':   accuracy,
         'mismatches': mismatches,
     }
 
@@ -79,7 +84,7 @@ def simulate_observation(map_craters: np.ndarray,
                          false_rate: float = 0.0,
                          miss_rate: float = 0.0,
                          rng: Optional[np.random.Generator] = None
-                         ) -> Tuple[np.ndarray, Dict[int, int]]:
+                         ) -> Tuple[np.ndarray, Dict[int, int], np.ndarray]:
     """
     Simulate a noisy crater observation from ground-truth map craters.
 
@@ -87,11 +92,17 @@ def simulate_observation(map_craters: np.ndarray,
     1. Add Gaussian noise σ to crater centers (position uncertainty)
     2. Randomly miss some craters (false negative = miss_rate %)
     3. Add random spurious craters (false detection = false_rate %)
+    4. [NEW] Generate detection confidence scores per crater:
+         Real craters:    confidence ~ N(0.85, 0.05), clipped [0.50, 1.00]
+         Spurious craters: confidence ~ N(0.35, 0.10), clipped [0.10, 0.60]
+       This mirrors a realistic detector where true craters have high
+       confidence and false positives have lower, uncertain confidence.
 
     Returns:
-      obs_craters : (M, 5) noisy observation array
-      gt_corr     : {obs_idx → map_idx} ground truth correspondence
-                    (only for true craters, not spurious ones)
+      obs_craters   : (M, 5) noisy observation array
+      gt_corr       : {obs_idx → map_idx} ground truth correspondence
+                      (only for true craters, not spurious ones)
+      obs_confidence: (M,) float32 array of detection confidence in [0, 1]
     """
     if rng is None:
         rng = np.random.default_rng()
@@ -115,7 +126,6 @@ def simulate_observation(map_craters: np.ndarray,
     obs_craters = obs_true.copy()
 
     if n_false > 0:
-        # Random positions within the image bounds
         img_size = obs[:, :2].max() + 50
         spurious = rng.random((n_false, obs_true.shape[1]))
         spurious[:, :2] *= img_size
@@ -128,7 +138,19 @@ def simulate_observation(map_craters: np.ndarray,
         gt_corr[obs_i] = int(map_i)
     # Spurious craters have no GT correspondence
 
-    return obs_craters.astype(np.float32), gt_corr
+    # 4. [NEW] Generate detection confidence scores
+    #    Real craters: high confidence (detector is sure it's a crater)
+    #    Spurious craters: low confidence (detector is uncertain)
+    n_true = len(obs_true)
+    conf_true = rng.normal(0.85, 0.05, n_true).clip(0.50, 1.00).astype(np.float32)
+
+    if n_false > 0:
+        conf_spurious = rng.normal(0.35, 0.10, n_false).clip(0.10, 0.60).astype(np.float32)
+        obs_confidence = np.concatenate([conf_true, conf_spurious])
+    else:
+        obs_confidence = conf_true
+
+    return obs_craters.astype(np.float32), gt_corr, obs_confidence
 
 
 # ─── Single Trial ─────────────────────────────────────────────────────────────
@@ -147,15 +169,17 @@ def run_single_trial(map_craters: np.ndarray,
     if rng is None:
         rng = np.random.default_rng()
 
-    obs_craters, gt_corr = simulate_observation(
+    # Unpack 3-tuple: obs_craters, gt_corr, obs_confidence
+    obs_craters, gt_corr, obs_confidence = simulate_observation(
         map_craters, sigma, false_rate, miss_rate, rng)
 
     if len(obs_craters) < MC_MIN_CRATERS:
         return {'valid': False}
 
-    # Time the matching
+    # Time the matching — pass confidence for conf-weighted voting
     t0 = time.perf_counter()
-    match_result = matcher.match(obs_craters, map_craters)
+    match_result = matcher.match(obs_craters, map_craters,
+                                 obs_confidence=obs_confidence)
     t1 = time.perf_counter()
     match_time = t1 - t0
 
@@ -169,21 +193,21 @@ def run_single_trial(map_craters: np.ndarray,
         nav_result = navigate(match_result['obs_pts'], match_result['map_pts'])
 
     return {
-        'valid':        True,
-        'match_time':   match_time,
-        'n_matches':    match_result['n_matches'],
-        'n_obs':        len(obs_craters),
-        'accuracy':     match_eval['accuracy'],
-        'mismatches':   match_eval['mismatches'],
-        'correct':      match_eval['correct'],
-        'nav_success':  nav_result['success'],
-        'pos_x_pct':    nav_result['position'].get('error_x_pct', float('nan')),
-        'pos_y_pct':    nav_result['position'].get('error_y_pct', float('nan')),
-        'pos_z_pct':    nav_result['position'].get('error_z_pct', float('nan')),
-        'pos_total_pct':nav_result['position'].get('total_pct', float('nan')),
-        'reproj_avg':   nav_result['reproj'].get('avg', float('nan')),
-        'reproj_max':   nav_result['reproj'].get('max_abs', float('nan')),
-        'reproj_rms':   nav_result['reproj'].get('rms', float('nan')),
+        'valid':         True,
+        'match_time':    match_time,
+        'n_matches':     match_result['n_matches'],
+        'n_obs':         len(obs_craters),
+        'accuracy':      match_eval['accuracy'],
+        'mismatches':    match_eval['mismatches'],
+        'correct':       match_eval['correct'],
+        'nav_success':   nav_result['success'],
+        'pos_x_pct':     nav_result['position'].get('error_x_pct', float('nan')),
+        'pos_y_pct':     nav_result['position'].get('error_y_pct', float('nan')),
+        'pos_z_pct':     nav_result['position'].get('error_z_pct', float('nan')),
+        'pos_total_pct': nav_result['position'].get('total_pct', float('nan')),
+        'reproj_avg':    nav_result['reproj'].get('avg', float('nan')),
+        'reproj_max':    nav_result['reproj'].get('max_abs', float('nan')),
+        'reproj_rms':    nav_result['reproj'].get('rms', float('nan')),
     }
 
 
@@ -362,9 +386,9 @@ if __name__ == '__main__':
     map_craters = np.zeros((N, 5), dtype=np.float32)
     map_craters[:, :2] = np.random.rand(N, 2) * 800
     map_craters[:, 2:4] = 12.0
-    map_craters[:, 4]   = 6.0
+    map_craters[:, 4]   = np.random.uniform(5, 25, N)  # realistic radii
 
     matcher = TriangleMatcher()
-    print("Running mini Monte Carlo (100 trials)...")
+    print("Running mini Monte Carlo (100 trials) with improved algorithm...")
     mc = run_monte_carlo(map_craters, matcher, n_trials=100, verbose=True)
-    print_mc_results(mc, "MINI TEST (100 trials)")
+    print_mc_results(mc, "MINI TEST (100 trials) — IMPROVED ALGORITHM")

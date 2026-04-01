@@ -1,7 +1,7 @@
 """
-Train YOLOv8n for lunar crater detection.
-YOLOv8 (nano variant) — upgrade over base paper's YOLOv7.
-Faster, more accurate on small objects, Ultralytics PyTorch implementation.
+Train YOLOv8 for lunar crater detection.
+Model variant is configured in config.py (default: yolov8s — small variant).
+Upgrade over base paper's YOLOv7: faster, more accurate on small objects.
 """
 import os
 import sys
@@ -12,11 +12,14 @@ from config import (YOLO_YAML, YOLO_MODEL, YOLO_EPOCHS, YOLO_IMGSZ,
                     YOLO_BATCH, MODELS_DIR)
 from prepare_yolo import prepare_dataset
 
+# Dynamic model save name: 'yolov8s.pt' -> 'yolov8s_craters'
+MODEL_SAVE_NAME = os.path.splitext(os.path.basename(YOLO_MODEL))[0] + '_craters'
+
 
 def train_yolo(epochs: int = None, imgsz: int = None, batch: int = None,
                resume: bool = False) -> str:
     """
-    Train YOLOv8n on the lunar crater dataset.
+    Train YOLOv8 on the lunar crater dataset.
     Returns path to best weights.
     """
     from ultralytics import YOLO
@@ -30,8 +33,9 @@ def train_yolo(epochs: int = None, imgsz: int = None, batch: int = None,
         print("Preparing YOLO dataset...")
         prepare_dataset()
 
+    model_base = os.path.splitext(YOLO_MODEL)[0].upper()  # e.g., 'YOLOV8S'
     print(f"\n{'='*60}")
-    print(f"Training YOLOv8n: {epochs} epochs, imgsz={imgsz}, batch={batch}")
+    print(f"Training {model_base}: {epochs} epochs, imgsz={imgsz}, batch={batch}")
     print(f"Device: {'CUDA' if torch.cuda.is_available() else 'CPU'}")
     print(f"{'='*60}\n")
 
@@ -43,7 +47,7 @@ def train_yolo(epochs: int = None, imgsz: int = None, batch: int = None,
         imgsz=imgsz,
         batch=batch,
         project=MODELS_DIR,
-        name='yolov8n_craters',
+        name=MODEL_SAVE_NAME,
         save=True,
         save_period=20,
         patience=30,          # early stopping
@@ -63,7 +67,7 @@ def train_yolo(epochs: int = None, imgsz: int = None, batch: int = None,
         mosaic=0.5,
     )
 
-    best_weights = os.path.join(MODELS_DIR, 'yolov8n_craters', 'weights', 'best.pt')
+    best_weights = os.path.join(MODELS_DIR, MODEL_SAVE_NAME, 'weights', 'best.pt')
     print(f"\nTraining complete. Best weights: {best_weights}")
     return best_weights
 
@@ -73,7 +77,12 @@ def validate_yolo(weights_path: str = None) -> dict:
     from ultralytics import YOLO
 
     if weights_path is None:
-        weights_path = os.path.join(MODELS_DIR, 'yolov8n_craters', 'weights', 'best.pt')
+        weights_path = os.path.join(MODELS_DIR, MODEL_SAVE_NAME, 'weights', 'best.pt')
+        # Fallback to legacy yolov8n weights
+        if not os.path.exists(weights_path):
+            legacy = os.path.join(MODELS_DIR, 'yolov8n_craters', 'weights', 'best.pt')
+            if os.path.exists(legacy):
+                weights_path = legacy
 
     if not os.path.exists(weights_path):
         print(f"Weights not found: {weights_path}")
@@ -90,7 +99,7 @@ def validate_yolo(weights_path: str = None) -> dict:
         'precision': float(metrics.box.mp),
         'recall':    float(metrics.box.mr),
     }
-    print("\nYOLOv8 Validation Results:")
+    print(f"\n{os.path.basename(weights_path)} Validation Results:")
     for k, v in results.items():
         print(f"  {k}: {v:.4f}")
     return results
@@ -98,7 +107,7 @@ def validate_yolo(weights_path: str = None) -> dict:
 
 if __name__ == '__main__':
     import argparse
-    parser = argparse.ArgumentParser(description='Train YOLOv8n crater detector')
+    parser = argparse.ArgumentParser(description=f'Train {YOLO_MODEL} crater detector')
     parser.add_argument('--epochs', type=int, default=YOLO_EPOCHS)
     parser.add_argument('--imgsz',  type=int, default=YOLO_IMGSZ)
     parser.add_argument('--batch',  type=int, default=YOLO_BATCH)
